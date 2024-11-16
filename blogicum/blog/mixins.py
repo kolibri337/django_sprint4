@@ -1,18 +1,33 @@
-from .models import Comment, Post
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse
+
+from .models import Post, Comment
+from .forms import PostForm, CommentForm
 
 
-class PostsQuerySetMixin:
-    def get_queryset(self):
-        return Post.post_list
-
-
-class PostsEditMixin:
+class PostChangeMixin:
     model = Post
-    template_name = "blog/create.html"
-    queryset = Post.objects.select_related("author", "location", "category")
+    template_name = 'blog/create.html'
+    form_class = PostForm
+
+    def dispatch(self, request, *args, **kwargs):
+        post = get_object_or_404(Post, pk=kwargs['pk'])
+        if post.author != request.user:
+            return redirect('blog:post_detail', pk=kwargs['pk'])
+        return super().dispatch(request, *args, **kwargs)
 
 
-class CommentEditMixin:
+class CommentMixin:
     model = Comment
-    pk_url_kwarg = "comment_pk"
-    template_name = "blog/comment.html"
+    form_class = CommentForm
+    template_name = 'blog/comment.html'
+    pk_url_kwarg = 'comment_id'
+
+    def dispatch(self, request, *args, **kwargs):
+        comment = get_object_or_404(Comment, pk=kwargs['comment_id'])
+        if comment.author != request.user:
+            return redirect('blog:post_detail', pk=kwargs['pk'])
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_success_url(self):
+        return reverse('blog:post_detail', kwargs={'pk': self.kwargs['pk']})
